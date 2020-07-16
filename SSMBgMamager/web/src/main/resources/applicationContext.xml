@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+	http://www.springframework.org/schema/beans/spring-beans.xsd
+	http://www.springframework.org/schema/context
+	http://www.springframework.org/schema/context/spring-context.xsd
+	http://www.springframework.org/schema/aop
+	http://www.springframework.org/schema/aop/spring-aop.xsd
+	http://www.springframework.org/schema/tx
+	http://www.springframework.org/schema/tx/spring-tx.xsd">
+
+
+    <!--
+    扫包即可创建dao层和service相关类的实例对象，其中service层只需要在需要的service实现类上注解service，
+    spring IOc就会为我们创建代理实现类对象。
+    而dao层，需要指定数据源，指定SqlSessionFactoryBean(需要注入数据源属性)，这个对象就是连接spring和mybatis的桥梁
+    他会将dao层接口代理实现类对象交给srping Ioc容器管理，而创建dao接口代理实现类通过注解方式进行时，
+    没有对应的xml接口映射文件，接口全类名就需要通过：MapperScannerConfigurer类来指定，
+    由此，service层和dao层代理对象就可搞定，而这个配置文件和web.xml配置文件中配置的前端控制器紧密相连，
+    这个前端控制器在实例化时就会加载此配置文件，其中，基于注解的事务配置，需要开启aop注解事务配置支持
+    标签为tx：annotationDriven，需要指定事务控制器
+    这一个配置文件就将前两层完全配置好，结合springmvc的单独配置文件以及web.xml文件就完成了ssm框架的环境搭建
+
+     springMVC用注解要开mcc注解支持：mvc：annotation-driven
+     spring事务控制用注解要开aop注解支持：tx:annotation-driven
+
+    理一下顺序：
+    tomcat服务器启动，就会加载wen.xml配置文件，
+    web.xml配置文件配置了监听器，监听服务器启动的context监听器就会加载此容器核心配置文件，创建前两层的代理实现类
+    web.xml配置文件还配置了前端控制器:DispatcherServlet，这个servlet定义为（配置为）随着服务器即实例化
+    而他的实例化过程伴随着springMVC配置文件的解析，完成web层实例对象的创建:Controller,视图解析器：InternalResourceViewResolver
+    xml文件还配置了实例化各种组件:乱码过滤器。。。
+
+    -->
+
+    <!--
+
+        经验：有注解就有扫包操作
+        dao用MapperScannerConfigurer类扫
+        其他(service,controller)用context:component-scan标签扫
+     -->
+
+
+    <!-- 开启注解扫描，管理service和dao -->
+    <context:component-scan base-package="com.hehe.service">
+    </context:component-scan>
+    <context:component-scan base-package="com.hehe.dao">
+    </context:component-scan>
+
+    <context:property-placeholder location="classpath:db.properties"/>
+    <!-- 配置连接池 -->
+    <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+        <property name="driverClass" value="${jdbc.driver}"/>
+        <property name="jdbcUrl" value="${jdbc.url}"/>
+        <property name="user" value="${jdbc.username}"/>
+        <property name="password" value="${jdbc.password}"/>
+    </bean>
+    <!-- 把交给IOC管理 SqlSessionFactory -->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="dataSource"/>
+        <!--传入PageHelper的插件-->
+        <property name="plugins">
+            <array>
+                <!-- 传入插件的对象 -->
+                <bean class="com.github.pagehelper.PageInterceptor">
+                    <property name="properties">
+                        <props>
+                            <prop key="helperDialect">oracle</prop>
+                            <prop key="reasonable">true</prop>
+                        </props>
+                    </property>
+                </bean>
+            </array>
+        </property>
+    </bean>
+
+    <!-- 扫描dao接口 -->
+    <bean id="mapperScanner" class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <property name="basePackage" value="com.hehe.dao"/>
+    </bean>
+
+    <!-- 配置Spring的声明式事务管理 -->
+    <!-- 配置事务管理器 -->
+    <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+
+    <tx:annotation-driven transaction-manager="transactionManager"/>
+
+</beans>
+
+
+
+
+
+
+
+
+
+
+
+
+
